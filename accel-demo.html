@@ -2,65 +2,70 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Accelerometer Demo</title>
-
+    <title>Accelerometer Demo with Shake Detection</title>
     <style>
-
-    .plot {
-        height: 20px;
-        background-color: #88f;
-        margin-top: 10px;
-    }
-    </style>
-
-<script>
-var px = 50; // Position x and y
-var py = 50;
-var vx = 0.0; // Velocity x and y
-var vy = 0.0;
-var updateRate = 1/60; // Sensor refresh rate
-
-function getAccel() {
-    DeviceMotionEvent.requestPermission().then(response => {
-        if (response == 'granted') {
-            // Listen to the device's motion event
-            window.addEventListener('devicemotion', (event) => {
-                const accel = event.accelerationIncludingGravity;
-                updatePlots(accel.x, accel.y, accel.z);
-
-                // Assume vx and vy are now being controlled by the accelerometer
-                vx = accel.x * updateRate * 2;
-                vy = accel.y * updateRate;
-
-                // The rest of your position update logic goes here
-            });
+        .plot {
+            height: 20px;
+            background-color: #88f;
+            margin-top: 10px;
         }
-    });
-}
-
-function updatePlots(x, y, z) {
-    const scaleX = document.getElementById('xPlot');
-    const scaleY = document.getElementById('yPlot');
-    const scaleZ = document.getElementById('zPlot');
-    // Assuming the accelerometer values range from -10 to +10
-    // Adjust the multiplier for the visual representation as needed
-    scaleX.style.width = `${(x + 10) * 5}%`;
-    scaleY.style.width = `${(y + 10) * 5}%`;
-    scaleZ.style.width = `${(z + 10) * 5}%`;
-}
-
-</script>
+        .valueDisplay {
+            margin-top: 5px;
+        }
+    </style>
 </head>
 <body style="background-color:lightblue;">
 
 <div id="main">
     <button id="accelPermsButton" onclick="getAccel()" style="height:50px;">Get Accelerometer Permissions</button>
-
-    <div class="indicatorDot" style="left:30%; top:30%;"></div>
-    <div>X Acceleration:<div id="xPlot" class="plot" style="background-color:darkgreen;"></div></div>
-    <div>Y Acceleration:<div id="yPlot" class="plot" style="background-color: blueviolet;"></div></div>
-    <div>Z Acceleration:<div id="zPlot" class="plot" style="background-color: darkmagenta;"></div></div>
+    
+    <div>X Acceleration:<div id="xPlot" class="plot" style="background-color:darkgreen;"></div><span id="xValue" class="valueDisplay"></span></div>
+    <div>Y Acceleration:<div id="yPlot" class="plot" style="background-color:blueviolet;"></div><span id="yValue" class="valueDisplay"></span></div>
+    <div>Z Acceleration:<div id="zPlot" class="plot" style="background-color:darkblue;"></div><span id="zValue" class="valueDisplay"></span></div>
 </div>
 
+<script>
+    var px = 50, py = 50; // Initial position
+    var vx = 0.0, vy = 0.0; // Initial velocity
+    var updateRate = 1/60; // Sensor refresh rate
+
+    function getAccel() {
+        DeviceMotionEvent.requestPermission().then(response => {
+            if (response == 'granted') {
+                window.addEventListener('devicemotion', (event) => {
+                    const accel = event.accelerationIncludingGravity;
+                    updatePlots(accel.x, accel.y, accel.z);
+
+                    vx = accel.x * updateRate * 2;
+                    vy = accel.y * updateRate * 2;
+
+                    // Shake detection logic
+                    let threshold = 15; // Define a threshold for shake detection
+                    let totalAccel = Math.abs(accel.x) + Math.abs(accel.y) + Math.abs(accel.z);
+
+                    if (totalAccel > threshold) {
+                        // Shake detected
+                        console.log('Shake detected!');
+                        // You can add any action you want to perform when shake is detected
+                    }
+                });
+            }
+        });
+    }
+
+    function updatePlots(x, y, z) {
+        const scaleX = document.getElementById('xPlot');
+        const scaleY = document.getElementById('yPlot');
+        const scaleZ = document.getElementById('zPlot');
+        scaleX.style.width = `${(x + 10) * 5}%`;
+        scaleY.style.width = `${(y + 10) * 5}%`;
+        scaleZ.style.width = `${(z + 10) * 5}%`;
+
+        // Update the text values
+        document.getElementById('xValue').innerText = `${x.toFixed(2)} m/s²`;
+        document.getElementById('yValue').innerText = `${y.toFixed(2)} m/s²`;
+        document.getElementById('zValue').innerText = `${z.toFixed(2)} m/s²`;
+    }
+</script>
 </body>
 </html>
