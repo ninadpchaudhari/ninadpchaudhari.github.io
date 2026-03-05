@@ -1,1183 +1,174 @@
-
-                        <!DOCTYPE html>
-                        <html lang="en">
-                        <head>
-                            <meta charset="UTF-8">
-                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-							<style>
-								body {
-									background-color: white; /* Ensure the iframe has a white background */
-								}
-
-								
-							</style>
-                        </head>
-                        <body>
-                            <!DOCTYPE html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <title>Hand-Controlled Graph</title>
+  <meta charset="UTF-8">
+  <!-- For highschool students testing activity -->
+  <title>Simple E-Commerce App</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body { margin: 0; overflow: hidden; background: #1e1e2e; }
-    #webcam { position: fixed; bottom: 10px; right: 10px; width: 200px; border-radius: 8px; z-index: 10; opacity: 0.7; }
-    #gesture-hud {
-      position: fixed; top: 10px; left: 10px; color: #cdd6f4;
-      font-family: monospace; font-size: 14px; z-index: 10;
-      background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px;
+    body {
+      padding-top: 20px;
     }
-    canvas { display: block; }
+    .product-card {
+      margin-bottom: 20px;
+    }
   </style>
 </head>
 <body>
-  <div id="gesture-hud">Gesture: waiting...</div>
-  <video id="webcam" autoplay playsinline></video>
-  <div id="graph"></div>
+  <div class="container">
+    <h1 class="text-center mb-4">Simple E-Commerce App</h1>
+    <div class="row">
+      <!-- Product List Column -->
+      <div class="col-md-8">
+        <h2>Products</h2>
+        <!-- <div class="col-md-6 product-card">
+            <div class="card">
+                <img src="https://images.unsplash.com/photo-1511499767150-a48a237f0083?q=80&w=1760&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" class="card-img-top" alt="Glasses" style="height: 200px; object-fit: cover;">
+                <div class="card-body">
+                  <h5 class="card-title">Sunglasses</h5>
+                  <p class="card-text">10</p>
+                  <button class="btn btn-success btn-add" data-id="0" data-price="10">Add to Cart</button>
+                </div>
+              </div>
 
-  <!-- Dependencies -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+        </div> -->
+
+        <div id="product-list" class="row"></div>
+      </div>
+      <!-- Shopping Cart Column -->
+      <div class="col-md-4">
+        <h2>Shopping Cart</h2>
+        <ul id="cart-items" class="list-group mb-3"></ul>
+        <button id="checkout-btn" class="btn btn-primary w-100">Checkout</button>
+        <div class="mt-3">
+          <h4>Total: <span id="total-output">$0.00</span></h4>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script>
-  // ============================================
-  // 1. GRAPH SETUP (D3 Force Graph)
-  // ============================================
-  const width = window.innerWidth;
-  const height = window.innerHeight;
+    // Define the list of products
+    // const products = [
+    //   { id: 1, name: "Jeans", price: 39.99, image: "https://images.unsplash.com/photo-1637069585336-827b298fe84a?q=80&w=1973&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" },
+    //   { id: 2, name: "Sneakers", price: 59.99, image: "https://images.unsplash.com/photo-1600269452121-4f2416e55c28?q=80&w=1965&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" },
+    //   { id: 3, name: "Hat", price: 14.99, image: "https://images.unsplash.com/photo-1514327605112-b887c0e61c0a?q=80&w=1632&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" },
+    //   { id: 4, name: "T-Shirt", price: 19.99, image: "https://products.advanced-online.com/SIE/Large/6-33-oh136vbx.jpg" },
+    //   { id: 5, name: "Jacket", price: 89.99, image: "https://images.unsplash.com/photo-1552327359-d86398116072?q=80&w=1963&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" }
+    // ];
 
-  // Sample graph data (like Obsidian notes)
-  const nodes =[
-    {
-      "id": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "group": 1
-    },
-    {
-      "id": "Open source alternative to turbotax called open-source tax solver",
-      "group": 2
-    },
-    {
-      "id": "Detecting and understanding real-world differential performance bugs in machine learning libraries",
-      "group": 2
-    },
-    {
-      "id": "Filing taxes 101: Common errors taxpayers should avoid",
-      "group": 2
-    },
-    {
-      "id": "Use opentaxsolver as an open source alternative to turbotax",
-      "group": 2
-    },
-    {
-      "id": "Pennsylvania department of human services: Supplemental nutrition assistance program (snap) handbook",
-      "group": 2
-    },
-    {
-      "id": "Differential Performance Debugging With Discriminant Regression Trees",
-      "group": 2
-    },
-    {
-      "id": "Algorithmic Fairness and Vertical Equity: Income Fairness with IRS Tax Audit Models",
-      "group": 2
-    },
-    {
-      "id": "Formalizing the Code",
-      "group": 2
-    },
-    {
-      "id": "Paper 11",
-      "group": 2
-    },
-    {
-      "id": "Written statement of nina e. olson national taxpayer advocate before the committee on finance united states senate hearing on tax return preparation options for taxpayers",
-      "group": 2
-    },
-    {
-      "id": "Towards formalizing statute law as default logic through automatic semantic parsing",
-      "group": 2
-    },
-    {
-      "id": "Compass hhs do i qualify?",
-      "group": 2
-    },
-    {
-      "id": "Exposing Error in Poverty Management Technology: A Method for Auditing Government Benefits Screening Tools",
-      "group": 2
-    },
-    {
-      "id": "Colorblind tax enforcement",
-      "group": 2
-    },
-    {
-      "id": "Should the irs know your race? the challenge of colorblind tax data",
-      "group": 2
-    },
-    {
-      "id": "The Right To Confront Your Accusers",
-      "group": 2
-    },
-    {
-      "id": "Digital welfare fraud detection and the Dutch\n                    SyRI\n                    judgment",
-      "group": 2
-    },
-    {
-      "id": "The irs now audits poor americans at about the same rate as the top 1 percent",
-      "group": 2
-    },
-    {
-      "id": "Regional bias in irs audit selection",
-      "group": 2
-    },
-    {
-      "id": "Exploring the mysteries: Can we ever know anything about race and tax",
-      "group": 2
-    },
-    {
-      "id": "The irs is targeting the poorest americans",
-      "group": 2
-    },
-    {
-      "id": "When Trusted Black Boxes Don&#x2019;t Agree: Incentivizing Iterative Improvement and Accountability in Critical Software Systems",
-      "group": 2
-    },
-    {
-      "id": "Metamorphic Testing: A New Approach for Generating Next Test Cases",
-      "group": 2
-    },
-    {
-      "id": "The Oracle Problem in Software Testing: A Survey",
-      "group": 2
-    },
-    {
-      "id": "HORIZONTAL EQUITY, ONCE MORE",
-      "group": 2
-    },
-    {
-      "id": "Ustaxes: a free open-source tax filing application",
-      "group": 2
-    },
-    {
-      "id": "Open tax solver",
-      "group": 2
-    },
-    {
-      "id": "Regulating tax return preparation",
-      "group": 2
-    },
-    {
-      "id": "Openfisca france",
-      "group": 2
-    },
-    {
-      "id": "Fairness-aware configuration of machine learning libraries",
-      "group": 2
-    },
-    {
-      "id": "Les r&#x00E8;gles du moteur de calcul de l&#x2019;imp&#x00F4;t sur le revenu et de l&#x2019;imp&#x00F4;t sur la fortune immobili&#x00E8;re",
-      "group": 2
-    },
-    {
-      "id": "A modern compiler for the French tax code",
-      "group": 2
-    },
-    {
-      "id": "A dataset for statutory reasoning in tax law entailment and question answering",
-      "group": 2
-    },
-    {
-      "id": "Tax knowledge graph for a smarter and more personalized turbotax",
-      "group": 2
-    },
-    {
-      "id": "Education credits",
-      "group": 2
-    },
-    {
-      "id": "Credits for qualifying children and other dependents",
-      "group": 2
-    },
-    {
-      "id": "What is the difference between agi and magi on your taxes?",
-      "group": 2
-    },
-    {
-      "id": "Itemized deductions",
-      "group": 2
-    },
-    {
-      "id": "Filing statistics for week ending december 11 2020",
-      "group": 2
-    },
-    {
-      "id": "Six reasons 90 percent of people will e-file their tax returns",
-      "group": 2
-    },
-    {
-      "id": "\"Ignorance and Prejudice\" in Software Fairness",
-      "group": 2
-    },
-    {
-      "id": "Fairness testing: testing software for discrimination",
-      "group": 2
-    },
-    {
-      "id": "Testing Web Enabled Simulation at Scale Using Metamorphic Testing",
-      "group": 2
-    },
-    {
-      "id": "Automated functional testing of online search services",
-      "group": 2
-    },
-    {
-      "id": "A Bayesian Approach to Model Checking Biological Systems",
-      "group": 2
-    },
-    {
-      "id": "Earned income credit (eic)",
-      "group": 2
-    },
-    {
-      "id": "A Survey on Metamorphic Testing",
-      "group": 2
-    },
-    {
-      "id": "Metamorphic testing of driverless cars",
-      "group": 2
-    },
-    {
-      "id": "Testing and validating machine learning classifiers by metamorphic testing",
-      "group": 2
-    },
-    {
-      "id": "When does my program do this? learning circumstances of software behavior",
-      "group": 2
-    },
-    {
-      "id": "Static analysis for probabilistic programs",
-      "group": 2
-    },
-    {
-      "id": "Scikit-learn: Machine learning in Python",
-      "group": 2
-    },
-    {
-      "id": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "group": 1
-    },
-    {
-      "id": "Prefab",
-      "group": 2
-    },
-    {
-      "id": "Reverse Engineering Mobile Application User Interfaces with REMAUI (T)",
-      "group": 2
-    },
-    {
-      "id": "Improving random GUI testing with image-based widget detection",
-      "group": 2
-    },
-    {
-      "id": "Screen Recognition: Creating Accessibility Metadata for Mobile Applications from Pixels",
-      "group": 2
-    },
-    {
-      "id": "Owl eyes: Spotting ui display issues via visual understanding",
-      "group": 2
-    },
-    {
-      "id": "AppCheck: A Crowdsourced Testing Service for Android Applications",
-      "group": 2
-    },
-    {
-      "id": "DeepStellar: model-based quantitative analysis of stateful deep learning systems",
-      "group": 2
-    },
-    {
-      "id": "DeepXplore",
-      "group": 2
-    },
-    {
-      "id": "DeepTest",
-      "group": 2
-    },
-    {
-      "id": "DeepRoad: GAN-based metamorphic testing and input validation framework for autonomous driving systems",
-      "group": 2
-    },
-    {
-      "id": "DeepGauge: multi-granularity testing criteria for deep learning systems",
-      "group": 2
-    },
-    {
-      "id": "Faster r-cnn: Towards real-time object detection with region proposal networks",
-      "group": 2
-    },
-    {
-      "id": "You Only Look Once: Unified, Real-Time Object Detection",
-      "group": 2
-    },
-    {
-      "id": "SSD: Single Shot MultiBox Detector",
-      "group": 2
-    },
-    {
-      "id": "FCOS: A Simple and Strong Anchor-free Object Detector",
-      "group": 2
-    },
-    {
-      "id": "Object detection for graphical user interface: old fashioned or deep learning or a combination?",
-      "group": 2
-    },
-    {
-      "id": "Gallery D.C.: Design Search and Knowledge Discovery through Auto-created GUI Component Gallery",
-      "group": 2
-    },
-    {
-      "id": "On the Correlation between the Effectiveness of Metamorphic Relations and Dissimilarities of Test Case Executions",
-      "group": 2
-    },
-    {
-      "id": "An innovative approach for testing bioinformatics programs using metamorphic testing",
-      "group": 2
-    },
-    {
-      "id": "Metamorphic object insertion for testing object detection systems",
-      "group": 2
-    },
-    {
-      "id": "How the interface design influences users' spontaneous trustworthiness evaluations of web search results",
-      "group": 2
-    },
-    {
-      "id": "VINS: Visual Search for Mobile User Interface Design",
-      "group": 2
-    },
-    {
-      "id": "Unsupervised K-Means Clustering Algorithm",
-      "group": 2
-    },
-    {
-      "id": "Semantic cosine similarity",
-      "group": 2
-    },
-    {
-      "id": "Paper 173",
-      "group": 2
-    },
-    {
-      "id": "Paper 174",
-      "group": 2
-    },
-    {
-      "id": "WebUI: A Dataset for Enhancing Visual UI Understanding with Web Semantics",
-      "group": 2
-    },
-    {
-      "id": "Screen Parsing: Towards Reverse Engineering of UI Models from Screenshots",
-      "group": 2
-    },
-    {
-      "id": "MobileNetV3",
-      "group": 2
-    },
-    {
-      "id": "MTTM: Metamorphic Testing for Textual Content Moderation Software",
-      "group": 2
-    },
-    {
-      "id": "Paper 179",
-      "group": 2
-    },
-    {
-      "id": "Paper 180",
-      "group": 2
-    },
-    {
-      "id": "Paper 181",
-      "group": 2
-    },
-    {
-      "id": "Paper 182",
-      "group": 2
-    }
-  ]
-  
-  
-  const links = [
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Open source alternative to turbotax called open-source tax solver"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Detecting and understanding real-world differential performance bugs in machine learning libraries"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Filing taxes 101: Common errors taxpayers should avoid"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Use opentaxsolver as an open source alternative to turbotax"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Pennsylvania department of human services: Supplemental nutrition assistance program (snap) handbook"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Differential Performance Debugging With Discriminant Regression Trees"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Algorithmic Fairness and Vertical Equity: Income Fairness with IRS Tax Audit Models"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Formalizing the Code"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Paper 11"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Written statement of nina e. olson national taxpayer advocate before the committee on finance united states senate hearing on tax return preparation options for taxpayers"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Towards formalizing statute law as default logic through automatic semantic parsing"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Compass hhs do i qualify?"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Exposing Error in Poverty Management Technology: A Method for Auditing Government Benefits Screening Tools"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Colorblind tax enforcement"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Should the irs know your race? the challenge of colorblind tax data"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "The Right To Confront Your Accusers"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Digital welfare fraud detection and the Dutch\n                    SyRI\n                    judgment"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "The irs now audits poor americans at about the same rate as the top 1 percent"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Regional bias in irs audit selection"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Exploring the mysteries: Can we ever know anything about race and tax"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "The irs is targeting the poorest americans"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "When Trusted Black Boxes Don&#x2019;t Agree: Incentivizing Iterative Improvement and Accountability in Critical Software Systems"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Metamorphic Testing: A New Approach for Generating Next Test Cases"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "The Oracle Problem in Software Testing: A Survey"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "HORIZONTAL EQUITY, ONCE MORE"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Ustaxes: a free open-source tax filing application"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Open tax solver"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Regulating tax return preparation"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Openfisca france"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Fairness-aware configuration of machine learning libraries"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Les r&#x00E8;gles du moteur de calcul de l&#x2019;imp&#x00F4;t sur le revenu et de l&#x2019;imp&#x00F4;t sur la fortune immobili&#x00E8;re"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "A modern compiler for the French tax code"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "A dataset for statutory reasoning in tax law entailment and question answering"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Tax knowledge graph for a smarter and more personalized turbotax"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Education credits"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Credits for qualifying children and other dependents"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "What is the difference between agi and magi on your taxes?"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Itemized deductions"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Filing statistics for week ending december 11 2020"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Six reasons 90 percent of people will e-file their tax returns"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "\"Ignorance and Prejudice\" in Software Fairness"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Fairness testing: testing software for discrimination"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Testing Web Enabled Simulation at Scale Using Metamorphic Testing"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Automated functional testing of online search services"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "A Bayesian Approach to Model Checking Biological Systems"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Earned income credit (eic)"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "A Survey on Metamorphic Testing"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Metamorphic testing of driverless cars"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Testing and validating machine learning classifiers by metamorphic testing"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "When does my program do this? learning circumstances of software behavior"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Static analysis for probabilistic programs"
-    },
-    {
-      "source": "Metamorphic Testing and Debugging of Tax Preparation Software",
-      "target": "Scikit-learn: Machine learning in Python"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Prefab"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Reverse Engineering Mobile Application User Interfaces with REMAUI (T)"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Improving random GUI testing with image-based widget detection"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Screen Recognition: Creating Accessibility Metadata for Mobile Applications from Pixels"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Owl eyes: Spotting ui display issues via visual understanding"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "AppCheck: A Crowdsourced Testing Service for Android Applications"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "DeepStellar: model-based quantitative analysis of stateful deep learning systems"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "DeepXplore"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "DeepTest"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "DeepRoad: GAN-based metamorphic testing and input validation framework for autonomous driving systems"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "DeepGauge: multi-granularity testing criteria for deep learning systems"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Faster r-cnn: Towards real-time object detection with region proposal networks"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "You Only Look Once: Unified, Real-Time Object Detection"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "SSD: Single Shot MultiBox Detector"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "FCOS: A Simple and Strong Anchor-free Object Detector"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Object detection for graphical user interface: old fashioned or deep learning or a combination?"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Gallery D.C.: Design Search and Knowledge Discovery through Auto-created GUI Component Gallery"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Metamorphic Testing: A New Approach for Generating Next Test Cases"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "On the Correlation between the Effectiveness of Metamorphic Relations and Dissimilarities of Test Case Executions"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "An innovative approach for testing bioinformatics programs using metamorphic testing"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Testing and validating machine learning classifiers by metamorphic testing"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Metamorphic object insertion for testing object detection systems"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "How the interface design influences users' spontaneous trustworthiness evaluations of web search results"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "VINS: Visual Search for Mobile User Interface Design"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Unsupervised K-Means Clustering Algorithm"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Semantic cosine similarity"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Paper 173"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Paper 174"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "WebUI: A Dataset for Enhancing Visual UI Understanding with Web Semantics"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Screen Parsing: Towards Reverse Engineering of UI Models from Screenshots"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "MobileNetV3"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "MTTM: Metamorphic Testing for Textual Content Moderation Software"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Paper 179"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Paper 180"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Paper 181"
-    },
-    {
-      "source": "NeuroUI: A Metamorphic Testing Strategy to Make UI Component Detection Models Robust",
-      "target": "Paper 182"
-    }
-  ]
-  const color = d3.scaleOrdinal(d3.schemeSet2);
+    const products = [
+      { id: 1, name: "Jeans", price: 10, image: "https://images.unsplash.com/photo-1637069585336-827b298fe84a?q=80&w=1973&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" },
+      { id: 2, name: "Sneakers", price: 20, image: "https://images.unsplash.com/photo-1600269452121-4f2416e55c28?q=80&w=1965&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" },
+      { id: 3, name: "Hat", price: 10, image: "https://images.unsplash.com/photo-1514327605112-b887c0e61c0a?q=80&w=1632&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" },
+      { id: 4, name: "T-Shirt", price: 10, image: "https://products.advanced-online.com/SIE/Large/6-33-oh136vbx.jpg" },
+      { id: 5, name: "Jacket", price: 50, image: "https://images.unsplash.com/photo-1552327359-d86398116072?q=80&w=1963&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" }
+    ];
 
-  const svg = d3.select("#graph")
-    .append("svg")
-    .attr("width", width)
-    .attr("height", height);
+    // Array that holds prices of items added to the cart
+    const cart = [];
 
-  const g = svg.append("g"); // Main transform group
+    // References to UI elements
+    const productList = document.getElementById('product-list');
+    const cartItems = document.getElementById('cart-items');
+    const totalOutput = document.getElementById('total-output');
 
-  const simulation = d3.forceSimulation(nodes)
-    .force("link", d3.forceLink(links).id(d => d.id).distance(100))
-    .force("charge", d3.forceManyBody().strength(-300))
-    .force("center", d3.forceCenter(width / 2, height / 2))
-    .force("collision", d3.forceCollide().radius(30));
-
-  const link = g.append("g")
-    .selectAll("line")
-    .data(links).join("line")
-    .attr("stroke", "#585b70").attr("stroke-width", 1.5);
-
-  const node = g.append("g")
-    .selectAll("circle")
-    .data(nodes).join("circle")
-    .attr("r", 8)
-    .attr("fill", d => color(d.group))
-    .attr("stroke", "#1e1e2e").attr("stroke-width", 2);
-
-  const label = g.append("g")
-    .selectAll("text")
-    .data(nodes).join("text")
-    .text(d => d.id)
-    .attr("fill", "#cdd6f4")
-    .attr("font-size", "11px")
-    .attr("font-family", "monospace")
-    .attr("dx", 12).attr("dy", 4);
-
-  simulation.on("tick", () => {
-    link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
-        .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
-    node.attr("cx", d => d.x).attr("cy", d => d.y);
-    label.attr("x", d => d.x).attr("y", d => d.y);
-  });
-
-  // Current transform state
-  let currentTransform = d3.zoomIdentity;
-  const zoom = d3.zoom()
-    .scaleExtent([0.1, 10])
-    .on("zoom", (event) => {
-      currentTransform = event.transform;
-      g.attr("transform", event.transform);
+    // Populate products as Bootstrap cards within a responsive grid
+    products.forEach(product => {
+      const colDiv = document.createElement('div');
+      colDiv.className = "col-md-6 product-card";
+      colDiv.innerHTML = `
+        <div class="card">
+          <img src="${product.image}" class="card-img-top" alt="${product.name}" style="height: 200px; object-fit: cover;">
+          <div class="card-body">
+            <h5 class="card-title">${product.name}</h5>
+            <p class="card-text">$${product.price.toFixed(2)}</p>
+            <button class="btn btn-success btn-add" data-id="${product.id}" data-price="${product.price.toFixed(2)}">Add to Cart</button>
+          </div>
+        </div>
+      `;
+      productList.appendChild(colDiv);
     });
-  svg.call(zoom);
 
-  // ============================================
-  // 2. GESTURE ENGINE
-  // ============================================
-  class GestureEngine {
-    constructor() {
-      this.state = {
-        gesture: 'NONE',
-        cursorX: 0, cursorY: 0,        // normalized 0-1
-        pinchDistance: 0,
-        prevPinchDistance: 0,
-        fingerSpread: 0,
-        prevFingerSpread: 0,
-        fistStrength: 0,
-        numFingersUp: 0,
-        palmX: 0, palmY: 0,
-        prevPalmX: 0, prevPalmY: 0,
-        velocity: { x: 0, y: 0 },
-      };
-      this.smoothing = 0.6; // lerp factor
+    // Update the shopping cart UI
+    function updateCartUI() {
+      cartItems.innerHTML = "";
+      cart.forEach((price, index) => {
+        const li = document.createElement('li');
+        li.className = "list-group-item d-flex justify-content-between align-items-center";
+        li.textContent = `$${price.toFixed(2)}`;
+        // Add a remove button for each item
+        const removeBtn = document.createElement('button');
+        removeBtn.className = "btn btn-danger btn-sm";
+        removeBtn.textContent = "Remove";
+        removeBtn.onclick = function() {
+          cart.splice(index, 1);
+          updateCartUI();
+        };
+        li.appendChild(removeBtn);
+        cartItems.appendChild(li);
+      });
     }
 
-    lerp(a, b, t) { return a + (b - a) * t; }
-
-    distance(a, b) {
-      return Math.hypot(a.x - b.x, a.y - b.y);
-    }
-
-    isFingerUp(lm, tip, pip) {
-      return lm[tip].y < lm[pip].y;
-    }
-
-    process(landmarks) {
-      const lm = landmarks;
-      const s = this.state;
-
-      // Store previous
-      s.prevPinchDistance = s.pinchDistance;
-      s.prevFingerSpread = s.fingerSpread;
-      s.prevPalmX = s.palmX;
-      s.prevPalmY = s.palmY;
-
-      // Palm center (landmark 9 = middle finger base)
-      s.palmX = this.lerp(s.palmX, lm[9].x, this.smoothing);
-      s.palmY = this.lerp(s.palmY, lm[9].y, this.smoothing);
-
-      // Cursor = index finger tip
-      s.cursorX = this.lerp(s.cursorX, lm[8].x, this.smoothing);
-      s.cursorY = this.lerp(s.cursorY, lm[8].y, this.smoothing);
-
-      // Pinch = thumb tip (4) to index tip (8)
-      s.pinchDistance = this.distance(lm[4], lm[8]);
-
-      // Finger spread = average distance between finger tips
-      const tips = [lm[8], lm[12], lm[16], lm[20]];
-      let totalDist = 0;
-      for (let i = 0; i < tips.length - 1; i++) {
-        totalDist += this.distance(tips[i], tips[i + 1]);
+    // Buggy function for calculating the total; using <= instead of < causes a bug
+    function calculateTotal(prices) {
+      let total = 0.0;
+      for (let i = 0; i < prices.length - 1; i++) {  
+        total += prices[i];
       }
-      s.fingerSpread = totalDist / (tips.length - 1);
-
-      // Count fingers up
-      const fingersUp = [
-        lm[4].x < lm[3].x, // thumb (simplified for right hand)
-        this.isFingerUp(lm, 8, 6),   // index
-        this.isFingerUp(lm, 12, 10), // middle
-        this.isFingerUp(lm, 16, 14), // ring
-        this.isFingerUp(lm, 20, 18), // pinky
-      ];
-      s.numFingersUp = fingersUp.filter(Boolean).length;
-
-      // Velocity
-      s.velocity.x = s.palmX - s.prevPalmX;
-      s.velocity.y = s.palmY - s.prevPalmY;
-
-      // --- Classify gesture ---
-      if (s.pinchDistance < 0.05) {
-        s.gesture = 'PINCH';       // select / grab node
-      } else if (s.numFingersUp <= 1) {
-        s.gesture = 'FIST';        // not used yet
-      } else if (s.numFingersUp === 2 && fingersUp[1] && fingersUp[2]) {
-        s.gesture = 'PEACE';       // zoom mode
-      } else if (s.numFingersUp >= 4) {
-        s.gesture = 'OPEN';        // pan mode
-      } else if (s.numFingersUp === 1 && fingersUp[1]) {
-        s.gesture = 'POINT';       // hover / highlight
-      } else {
-        s.gesture = 'NONE';
+      // Apply a 10% discount if there are 3 or more items
+      if (prices.length >= 3) {
+        total *= 0.9;
       }
-
-      return s;
-    }
-  }
-
-  // ============================================
-  // 3. GRAPH CONTROLLER (gesture → graph actions)
-  // ============================================
-  class GraphController {
-    constructor(svg, g, zoom, simulation, nodes) {
-      this.svg = svg;
-      this.g = g;
-      this.zoom = zoom;
-      this.simulation = simulation;
-      this.nodes = nodes;
-      
-      // Support for two hands
-      this.hands = [
-        {
-          grabbedNode: null,
-          cursorEl: this.createCursor('#cba6f7'),
-          highlightEl: this.createHighlight('#f38ba8'),
-          lastGesture: 'NONE'
-        },
-        {
-          grabbedNode: null,
-          cursorEl: this.createCursor('#89b4fa'),
-          highlightEl: this.createHighlight('#f9e2af'),
-          lastGesture: 'NONE'
-        }
-      ];
+      return total;
     }
 
-    createCursor(color) {
-      const fillOpacity = color === '#cba6f7' ? 'rgba(203, 166, 247, 0.4)' : 'rgba(137, 180, 250, 0.4)';
-      return svg.append("circle")
-        .attr("r", 12)
-        .attr("fill", fillOpacity)
-        .attr("stroke", color)
-        .attr("stroke-width", 2)
-        .style("pointer-events", "none")
-        .style("transition", "r 0.1s")
-        .style("display", "none");
-    }
 
-    createHighlight(color) {
-      return svg.append("circle")
-        .attr("r", 0)
-        .attr("fill", "none")
-        .attr("stroke", color)
-        .attr("stroke-width", 2)
-        .style("pointer-events", "none");
-    }
+    // Event delegation for the "Add to Cart" buttons
+    const buttons = document.querySelectorAll('.btn-add');
+    buttons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        const price = parseFloat(e.target.getAttribute('data-price'));
+        cart.push(price);
+        updateCartUI();
+      });
+    });
+    
 
-    screenCoords(state) {
-      // MediaPipe gives mirrored x (0-1), convert to screen
-      return {
-        x: (1 - state.cursorX) * width,
-        y: state.cursorY * height
-      };
-    }
-
-    findNearestNode(sx, sy) {
-      // Convert screen coords to graph coords using current transform
-      const gx = (sx - currentTransform.x) / currentTransform.k;
-      const gy = (sy - currentTransform.y) / currentTransform.k;
-
-      let nearest = null;
-      let minDist = 40; // threshold in graph space
-      for (const n of this.nodes) {
-        const d = Math.hypot(n.x - gx, n.y - gy);
-        if (d < minDist) { minDist = d; nearest = n; }
-      }
-      return nearest;
-    }
-
-    updateHand(handIndex, state) {
-      const hand = this.hands[handIndex];
-      const { x, y } = this.screenCoords(state);
-
-      // Update cursor visual
-      hand.cursorEl.attr("cx", x).attr("cy", y).style("display", "block");
-
-      // Track gesture changes
-      const gestureChanged = state.gesture !== hand.lastGesture;
-      hand.lastGesture = state.gesture;
-
-      switch (state.gesture) {
-        case 'POINT': {
-          hand.cursorEl.attr("r", 12);
-          const nearest = this.findNearestNode(x, y);
-          if (nearest) {
-            const sx = currentTransform.k * nearest.x + currentTransform.x;
-            const sy = currentTransform.k * nearest.y + currentTransform.y;
-            hand.highlightEl
-              .attr("cx", sx).attr("cy", sy)
-              .attr("r", 20);
-          } else {
-            hand.highlightEl.attr("r", 0);
-          }
-          this.releaseNode(hand);
-          break;
-        }
-
-        case 'PINCH': {
-          hand.cursorEl.attr("r", 6);
-          const nearest = this.findNearestNode(x, y);
-          if (nearest && !hand.grabbedNode) {
-            // Check if this node is already grabbed by the other hand
-            const otherHand = this.hands[1 - handIndex];
-            if (otherHand.grabbedNode !== nearest) {
-              hand.grabbedNode = nearest;
-              hand.grabbedNode.fx = nearest.x;
-              hand.grabbedNode.fy = nearest.y;
-              this.simulation.alphaTarget(0.3).restart();
-            }
-          }
-          if (hand.grabbedNode) {
-            const gx = (x - currentTransform.x) / currentTransform.k;
-            const gy = (y - currentTransform.y) / currentTransform.k;
-            hand.grabbedNode.fx = gx;
-            hand.grabbedNode.fy = gy;
-            hand.highlightEl
-              .attr("cx", x).attr("cy", y)
-              .attr("r", 25);
-          }
-          break;
-        }
-
-        case 'OPEN': {
-          hand.cursorEl.attr("r", 18);
-          hand.highlightEl.attr("r", 0);
-          this.releaseNode(hand);
-
-          // Pan based on palm velocity
-          const vx = state.velocity.x * -width * 2;
-          const vy = state.velocity.y * height * 2;
-          if (Math.abs(vx) > 1 || Math.abs(vy) > 1) {
-            const t = currentTransform.translate(vx / currentTransform.k, vy / currentTransform.k);
-            this.svg.call(this.zoom.transform, t);
-          }
-          break;
-        }
-
-        case 'PEACE': {
-          hand.cursorEl.attr("r", 15);
-          hand.highlightEl.attr("r", 0);
-          this.releaseNode(hand);
-
-          // Zoom based on finger spread change
-          const spreadDelta = state.fingerSpread - state.prevFingerSpread;
-          if (Math.abs(spreadDelta) > 0.002) {
-            const zoomFactor = 1 + spreadDelta * 3;
-            const t = currentTransform.scale(zoomFactor);
-            // Clamp
-            if (t.k >= 0.1 && t.k <= 10) {
-              this.svg.call(this.zoom.transform, t);
-            }
-          }
-          break;
-        }
-
-        case 'FIST': {
-          hand.cursorEl.attr("r", 10);
-          hand.highlightEl.attr("r", 0);
-          this.releaseNode(hand);
-
-          // Reset view to default (center, zoom 1x) - only once per gesture
-          if (gestureChanged) {
-            const resetTransform = d3.zoomIdentity;
-            this.svg.transition()
-              .duration(750)
-              .ease(d3.easeCubicOut)
-              .call(this.zoom.transform, resetTransform);
-          }
-          break;
-        }
-
-        default:
-          hand.highlightEl.attr("r", 0);
-          this.releaseNode(hand);
-      }
-    }
-
-    update(states) {
-      // Update each hand that has state
-      states.forEach((state, index) => {
-        if (state) {
-          this.updateHand(index, state);
+    // `Checkout button` action
+    document.getElementById('checkout-btn').addEventListener('click', () => {
+      try {
+        debugger
+        const total = calculateTotal(cart);
+        if (isNaN(total)) {
+          totalOutput.textContent = "Error: Invalid total calculated";
         } else {
-          // Hide cursor if hand not detected
-          this.hands[index].cursorEl.style("display", "none");
-          this.hands[index].highlightEl.attr("r", 0);
-          this.releaseNode(this.hands[index]);
+          totalOutput.textContent = `$${total.toFixed(2)}`;
         }
-      });
-    }
-
-    releaseNode(hand) {
-      if (hand.grabbedNode) {
-        hand.grabbedNode.fx = null;
-        hand.grabbedNode.fy = null;
-        hand.grabbedNode = null;
-        // Only stop simulation if no hands are grabbing
-        const anyGrabbing = this.hands.some(h => h.grabbedNode !== null);
-        if (!anyGrabbing) {
-          this.simulation.alphaTarget(0);
-        }
+      } catch (err) {
+        totalOutput.textContent = `Error: ${err.message}`;
       }
-    }
-  }
-
-  // ============================================
-  // 4. MEDIAPIPE SETUP
-  // ============================================
-  const videoEl = document.getElementById('webcam');
-  const hudEl = document.getElementById('gesture-hud');
-  const gestureEngines = [new GestureEngine(), new GestureEngine()];
-  const controller = new GraphController(svg, g, zoom, simulation, nodes);
-
-  const mpHands = new Hands({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-  });
-
-  mpHands.setOptions({
-    maxNumHands: 2,
-    modelComplexity: 1,
-    minDetectionConfidence: 0.7,
-    minTrackingConfidence: 0.5,
-  });
-
-  mpHands.onResults((results) => {
-    const gestureColors = {
-      POINT: '🫵 POINT',
-      PINCH: '🤏 PINCH',
-      OPEN: '🖐️ OPEN',
-      PEACE: '✌️ PEACE',
-      FIST: '✊ FIST',
-      NONE: '...'
-    };
-
-    const states = [null, null];
-    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-      results.multiHandLandmarks.forEach((landmarks, index) => {
-        if (index < 2) {
-          states[index] = gestureEngines[index].process(landmarks);
-        }
-      });
-      controller.update(states);
-
-      // HUD - show both hands
-      let hudText = `Hands: ${results.multiHandLandmarks.length}<br>`;
-      states.forEach((state, i) => {
-        if (state) {
-          hudText += `Hand ${i + 1}: ${gestureColors[state.gesture]}<br>`;
-        }
-      });
-      hudText += `Zoom: ${currentTransform.k.toFixed(2)}x`;
-      hudEl.innerHTML = hudText;
-    } else {
-      controller.update(states);
-      hudEl.innerHTML = 'No hands detected';
-    }
-  });
-
-  const camera = new Camera(videoEl, {
-    onFrame: async () => {
-      await mpHands.send({ image: videoEl });
-    },
-    width: 640,
-    height: 480,
-  });
-  camera.start();
-
+    });
   </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
 
-							<script>
-                            	
-							</script>
-                        </body>
-                        </html>
-                    
+
+<!--   
+    // Event delegation for the "Add to Cart" buttons
+    const buttons = document.querySelectorAll('.btn-add');
+    buttons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        const productId = parseInt(e.target.getAttribute('data-id'));
+        const price = parseFloat(e.target.getAttribute('data-price'));
+        debugger
+        const product = products.find(p => p.id === productId);
+        if (product) {
+          cart.push(product.price);
+          updateCartUI();
+        }
+      });
+    }); -->
