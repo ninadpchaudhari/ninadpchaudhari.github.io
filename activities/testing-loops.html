@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- For highschool students testing activity -->
+  <title>Simple E-Commerce App</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      padding-top: 20px;
+    }
+    .product-card {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="text-center mb-4">Simple E-Commerce App</h1>
+    <div class="row">
+      <!-- Product List Column -->
+      <div class="col-md-8">
+        <h2>Products</h2>
+        <!-- <div class="col-md-6 product-card">
+            <div class="card">
+                <img src="https://images.unsplash.com/photo-1511499767150-a48a237f0083?q=80&w=1760&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" class="card-img-top" alt="Glasses" style="height: 200px; object-fit: cover;">
+                <div class="card-body">
+                  <h5 class="card-title">Sunglasses</h5>
+                  <p class="card-text">10</p>
+                  <button class="btn btn-success btn-add" data-id="0" data-price="10">Add to Cart</button>
+                </div>
+              </div>
+
+        </div> -->
+
+        <div id="product-list" class="row"></div>
+      </div>
+      <!-- Shopping Cart Column -->
+      <div class="col-md-4">
+        <h2>Shopping Cart</h2>
+        <ul id="cart-items" class="list-group mb-3"></ul>
+        <button id="checkout-btn" class="btn btn-primary w-100">Checkout</button>
+        <div class="mt-3">
+          <h4>Total: <span id="total-output">$0.00</span></h4>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Define the list of products
+    // const products = [
+    //   { id: 1, name: "Jeans", price: 39.99, image: "https://images.unsplash.com/photo-1637069585336-827b298fe84a?q=80&w=1973&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" },
+    //   { id: 2, name: "Sneakers", price: 59.99, image: "https://images.unsplash.com/photo-1600269452121-4f2416e55c28?q=80&w=1965&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" },
+    //   { id: 3, name: "Hat", price: 14.99, image: "https://images.unsplash.com/photo-1514327605112-b887c0e61c0a?q=80&w=1632&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" },
+    //   { id: 4, name: "T-Shirt", price: 19.99, image: "https://products.advanced-online.com/SIE/Large/6-33-oh136vbx.jpg" },
+    //   { id: 5, name: "Jacket", price: 89.99, image: "https://images.unsplash.com/photo-1552327359-d86398116072?q=80&w=1963&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" }
+    // ];
+
+    const products = [
+      { id: 1, name: "Jeans", price: 10, image: "https://images.unsplash.com/photo-1637069585336-827b298fe84a?q=80&w=1973&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" },
+      { id: 2, name: "Sneakers", price: 20, image: "https://images.unsplash.com/photo-1600269452121-4f2416e55c28?q=80&w=1965&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" },
+      { id: 3, name: "Hat", price: 10, image: "https://images.unsplash.com/photo-1514327605112-b887c0e61c0a?q=80&w=1632&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" },
+      { id: 4, name: "T-Shirt", price: 10, image: "https://products.advanced-online.com/SIE/Large/6-33-oh136vbx.jpg" },
+      { id: 5, name: "Jacket", price: 50, image: "https://images.unsplash.com/photo-1552327359-d86398116072?q=80&w=1963&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" }
+    ];
+
+    // Array that holds prices of items added to the cart
+    const cart = [];
+
+    // References to UI elements
+    const productList = document.getElementById('product-list');
+    const cartItems = document.getElementById('cart-items');
+    const totalOutput = document.getElementById('total-output');
+
+    // Populate products as Bootstrap cards within a responsive grid
+    products.forEach(product => {
+      const colDiv = document.createElement('div');
+      colDiv.className = "col-md-6 product-card";
+      colDiv.innerHTML = `
+        <div class="card">
+          <img src="${product.image}" class="card-img-top" alt="${product.name}" style="height: 200px; object-fit: cover;">
+          <div class="card-body">
+            <h5 class="card-title">${product.name}</h5>
+            <p class="card-text">$${product.price.toFixed(2)}</p>
+            <button class="btn btn-success btn-add" data-id="${product.id}" data-price="${product.price.toFixed(2)}">Add to Cart</button>
+          </div>
+        </div>
+      `;
+      productList.appendChild(colDiv);
+    });
+
+    // Update the shopping cart UI
+    function updateCartUI() {
+      cartItems.innerHTML = "";
+      cart.forEach((price, index) => {
+        const li = document.createElement('li');
+        li.className = "list-group-item d-flex justify-content-between align-items-center";
+        li.textContent = `$${price.toFixed(2)}`;
+        // Add a remove button for each item
+        const removeBtn = document.createElement('button');
+        removeBtn.className = "btn btn-danger btn-sm";
+        removeBtn.textContent = "Remove";
+        removeBtn.onclick = function() {
+          cart.splice(index, 1);
+          updateCartUI();
+        };
+        li.appendChild(removeBtn);
+        cartItems.appendChild(li);
+      });
+    }
+
+    // Buggy function for calculating the total; using <= instead of < causes a bug
+    function calculateTotal(prices) {
+      let total = 0.0;
+      for (let i = 0; i < prices.length - 1; i++) {  
+        total += prices[i];
+      }
+      // Apply a 10% discount if there are 3 or more items
+      if (prices.length >= 3) {
+        total *= 0.9;
+      }
+      return total;
+    }
+
+
+    // Event delegation for the "Add to Cart" buttons
+    const buttons = document.querySelectorAll('.btn-add');
+    buttons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        const price = parseFloat(e.target.getAttribute('data-price'));
+        cart.push(price);
+        updateCartUI();
+      });
+    });
+    
+
+    // `Checkout button` action
+    document.getElementById('checkout-btn').addEventListener('click', () => {
+      try {
+        debugger
+        const total = calculateTotal(cart);
+        if (isNaN(total)) {
+          totalOutput.textContent = "Error: Invalid total calculated";
+        } else {
+          totalOutput.textContent = `$${total.toFixed(2)}`;
+        }
+      } catch (err) {
+        totalOutput.textContent = `Error: ${err.message}`;
+      }
+    });
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+
+<!--   
+    // Event delegation for the "Add to Cart" buttons
+    const buttons = document.querySelectorAll('.btn-add');
+    buttons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        const productId = parseInt(e.target.getAttribute('data-id'));
+        const price = parseFloat(e.target.getAttribute('data-price'));
+        debugger
+        const product = products.find(p => p.id === productId);
+        if (product) {
+          cart.push(product.price);
+          updateCartUI();
+        }
+      });
+    }); -->
