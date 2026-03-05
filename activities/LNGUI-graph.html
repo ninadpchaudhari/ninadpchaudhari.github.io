@@ -1,0 +1,509 @@
+
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+							<style>
+								body {
+									background-color: white; /* Ensure the iframe has a white background */
+								}
+
+								
+							</style>
+                        </head>
+                        <body>
+                            <!DOCTYPE html>
+<html>
+<head>
+  <title>Hand-Controlled Graph</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #1e1e2e; }
+    #webcam { position: fixed; bottom: 10px; right: 10px; width: 200px; border-radius: 8px; z-index: 10; opacity: 0.7; }
+    #gesture-hud {
+      position: fixed; top: 10px; left: 10px; color: #cdd6f4;
+      font-family: monospace; font-size: 14px; z-index: 10;
+      background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px;
+    }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <div id="gesture-hud">Gesture: waiting...</div>
+  <video id="webcam" autoplay playsinline></video>
+  <div id="graph"></div>
+
+  <!-- Dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+
+  <script>
+  // ============================================
+  // 1. GRAPH SETUP (D3 Force Graph)
+  // ============================================
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+
+  // Sample graph data (like Obsidian notes)
+  const nodes = [
+    { id: "Daily Notes", group: 1 },
+    { id: "Projects", group: 1 },
+    { id: "Machine Learning", group: 2 },
+    { id: "JavaScript", group: 2 },
+    { id: "Obsidian", group: 3 },
+    { id: "Zettelkasten", group: 3 },
+    { id: "Rust", group: 2 },
+    { id: "WebGL", group: 2 },
+    { id: "PKM", group: 3 },
+    { id: "Meditation", group: 4 },
+    { id: "Books", group: 4 },
+    { id: "Physics", group: 5 },
+    { id: "Math", group: 5 },
+    { id: "Topology", group: 5 },
+    { id: "Neural Nets", group: 2 },
+  ];
+
+  const links = [
+    { source: "Daily Notes", target: "Projects" },
+    { source: "Projects", target: "Machine Learning" },
+    { source: "Projects", target: "JavaScript" },
+    { source: "Obsidian", target: "Zettelkasten" },
+    { source: "Obsidian", target: "PKM" },
+    { source: "Machine Learning", target: "Neural Nets" },
+    { source: "JavaScript", target: "WebGL" },
+    { source: "Rust", target: "WebGL" },
+    { source: "PKM", target: "Zettelkasten" },
+    { source: "PKM", target: "Books" },
+    { source: "Books", target: "Meditation" },
+    { source: "Physics", target: "Math" },
+    { source: "Math", target: "Topology" },
+    { source: "Neural Nets", target: "Math" },
+    { source: "Daily Notes", target: "Meditation" },
+  ];
+
+  const color = d3.scaleOrdinal(d3.schemeSet2);
+
+  const svg = d3.select("#graph")
+    .append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+  const g = svg.append("g"); // Main transform group
+
+  const simulation = d3.forceSimulation(nodes)
+    .force("link", d3.forceLink(links).id(d => d.id).distance(100))
+    .force("charge", d3.forceManyBody().strength(-300))
+    .force("center", d3.forceCenter(width / 2, height / 2))
+    .force("collision", d3.forceCollide().radius(30));
+
+  const link = g.append("g")
+    .selectAll("line")
+    .data(links).join("line")
+    .attr("stroke", "#585b70").attr("stroke-width", 1.5);
+
+  const node = g.append("g")
+    .selectAll("circle")
+    .data(nodes).join("circle")
+    .attr("r", 8)
+    .attr("fill", d => color(d.group))
+    .attr("stroke", "#1e1e2e").attr("stroke-width", 2);
+
+  const label = g.append("g")
+    .selectAll("text")
+    .data(nodes).join("text")
+    .text(d => d.id)
+    .attr("fill", "#cdd6f4")
+    .attr("font-size", "11px")
+    .attr("font-family", "monospace")
+    .attr("dx", 12).attr("dy", 4);
+
+  simulation.on("tick", () => {
+    link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+        .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+    node.attr("cx", d => d.x).attr("cy", d => d.y);
+    label.attr("x", d => d.x).attr("y", d => d.y);
+  });
+
+  // Current transform state
+  let currentTransform = d3.zoomIdentity;
+  const zoom = d3.zoom()
+    .scaleExtent([0.1, 10])
+    .on("zoom", (event) => {
+      currentTransform = event.transform;
+      g.attr("transform", event.transform);
+    });
+  svg.call(zoom);
+
+  // ============================================
+  // 2. GESTURE ENGINE
+  // ============================================
+  class GestureEngine {
+    constructor() {
+      this.state = {
+        gesture: 'NONE',
+        cursorX: 0, cursorY: 0,        // normalized 0-1
+        pinchDistance: 0,
+        prevPinchDistance: 0,
+        fingerSpread: 0,
+        prevFingerSpread: 0,
+        fistStrength: 0,
+        numFingersUp: 0,
+        palmX: 0, palmY: 0,
+        prevPalmX: 0, prevPalmY: 0,
+        velocity: { x: 0, y: 0 },
+      };
+      this.smoothing = 0.6; // lerp factor
+    }
+
+    lerp(a, b, t) { return a + (b - a) * t; }
+
+    distance(a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    isFingerUp(lm, tip, pip) {
+      return lm[tip].y < lm[pip].y;
+    }
+
+    process(landmarks) {
+      const lm = landmarks;
+      const s = this.state;
+
+      // Store previous
+      s.prevPinchDistance = s.pinchDistance;
+      s.prevFingerSpread = s.fingerSpread;
+      s.prevPalmX = s.palmX;
+      s.prevPalmY = s.palmY;
+
+      // Palm center (landmark 9 = middle finger base)
+      s.palmX = this.lerp(s.palmX, lm[9].x, this.smoothing);
+      s.palmY = this.lerp(s.palmY, lm[9].y, this.smoothing);
+
+      // Cursor = index finger tip
+      s.cursorX = this.lerp(s.cursorX, lm[8].x, this.smoothing);
+      s.cursorY = this.lerp(s.cursorY, lm[8].y, this.smoothing);
+
+      // Pinch = thumb tip (4) to index tip (8)
+      s.pinchDistance = this.distance(lm[4], lm[8]);
+
+      // Finger spread = average distance between finger tips
+      const tips = [lm[8], lm[12], lm[16], lm[20]];
+      let totalDist = 0;
+      for (let i = 0; i < tips.length - 1; i++) {
+        totalDist += this.distance(tips[i], tips[i + 1]);
+      }
+      s.fingerSpread = totalDist / (tips.length - 1);
+
+      // Count fingers up
+      const fingersUp = [
+        lm[4].x < lm[3].x, // thumb (simplified for right hand)
+        this.isFingerUp(lm, 8, 6),   // index
+        this.isFingerUp(lm, 12, 10), // middle
+        this.isFingerUp(lm, 16, 14), // ring
+        this.isFingerUp(lm, 20, 18), // pinky
+      ];
+      s.numFingersUp = fingersUp.filter(Boolean).length;
+
+      // Velocity
+      s.velocity.x = s.palmX - s.prevPalmX;
+      s.velocity.y = s.palmY - s.prevPalmY;
+
+      // --- Classify gesture ---
+      if (s.pinchDistance < 0.05) {
+        s.gesture = 'PINCH';       // select / grab node
+      } else if (s.numFingersUp <= 1) {
+        s.gesture = 'FIST';        // not used yet
+      } else if (s.numFingersUp === 2 && fingersUp[1] && fingersUp[2]) {
+        s.gesture = 'PEACE';       // zoom mode
+      } else if (s.numFingersUp >= 4) {
+        s.gesture = 'OPEN';        // pan mode
+      } else if (s.numFingersUp === 1 && fingersUp[1]) {
+        s.gesture = 'POINT';       // hover / highlight
+      } else {
+        s.gesture = 'NONE';
+      }
+
+      return s;
+    }
+  }
+
+  // ============================================
+  // 3. GRAPH CONTROLLER (gesture → graph actions)
+  // ============================================
+  class GraphController {
+    constructor(svg, g, zoom, simulation, nodes) {
+      this.svg = svg;
+      this.g = g;
+      this.zoom = zoom;
+      this.simulation = simulation;
+      this.nodes = nodes;
+      
+      // Support for two hands
+      this.hands = [
+        {
+          grabbedNode: null,
+          cursorEl: this.createCursor('#cba6f7'),
+          highlightEl: this.createHighlight('#f38ba8'),
+          lastGesture: 'NONE'
+        },
+        {
+          grabbedNode: null,
+          cursorEl: this.createCursor('#89b4fa'),
+          highlightEl: this.createHighlight('#f9e2af'),
+          lastGesture: 'NONE'
+        }
+      ];
+    }
+
+    createCursor(color) {
+      const fillOpacity = color === '#cba6f7' ? 'rgba(203, 166, 247, 0.4)' : 'rgba(137, 180, 250, 0.4)';
+      return svg.append("circle")
+        .attr("r", 12)
+        .attr("fill", fillOpacity)
+        .attr("stroke", color)
+        .attr("stroke-width", 2)
+        .style("pointer-events", "none")
+        .style("transition", "r 0.1s")
+        .style("display", "none");
+    }
+
+    createHighlight(color) {
+      return svg.append("circle")
+        .attr("r", 0)
+        .attr("fill", "none")
+        .attr("stroke", color)
+        .attr("stroke-width", 2)
+        .style("pointer-events", "none");
+    }
+
+    screenCoords(state) {
+      // MediaPipe gives mirrored x (0-1), convert to screen
+      return {
+        x: (1 - state.cursorX) * width,
+        y: state.cursorY * height
+      };
+    }
+
+    findNearestNode(sx, sy) {
+      // Convert screen coords to graph coords using current transform
+      const gx = (sx - currentTransform.x) / currentTransform.k;
+      const gy = (sy - currentTransform.y) / currentTransform.k;
+
+      let nearest = null;
+      let minDist = 40; // threshold in graph space
+      for (const n of this.nodes) {
+        const d = Math.hypot(n.x - gx, n.y - gy);
+        if (d < minDist) { minDist = d; nearest = n; }
+      }
+      return nearest;
+    }
+
+    updateHand(handIndex, state) {
+      const hand = this.hands[handIndex];
+      const { x, y } = this.screenCoords(state);
+
+      // Update cursor visual
+      hand.cursorEl.attr("cx", x).attr("cy", y).style("display", "block");
+
+      // Track gesture changes
+      const gestureChanged = state.gesture !== hand.lastGesture;
+      hand.lastGesture = state.gesture;
+
+      switch (state.gesture) {
+        case 'POINT': {
+          hand.cursorEl.attr("r", 12);
+          const nearest = this.findNearestNode(x, y);
+          if (nearest) {
+            const sx = currentTransform.k * nearest.x + currentTransform.x;
+            const sy = currentTransform.k * nearest.y + currentTransform.y;
+            hand.highlightEl
+              .attr("cx", sx).attr("cy", sy)
+              .attr("r", 20);
+          } else {
+            hand.highlightEl.attr("r", 0);
+          }
+          this.releaseNode(hand);
+          break;
+        }
+
+        case 'PINCH': {
+          hand.cursorEl.attr("r", 6);
+          const nearest = this.findNearestNode(x, y);
+          if (nearest && !hand.grabbedNode) {
+            // Check if this node is already grabbed by the other hand
+            const otherHand = this.hands[1 - handIndex];
+            if (otherHand.grabbedNode !== nearest) {
+              hand.grabbedNode = nearest;
+              hand.grabbedNode.fx = nearest.x;
+              hand.grabbedNode.fy = nearest.y;
+              this.simulation.alphaTarget(0.3).restart();
+            }
+          }
+          if (hand.grabbedNode) {
+            const gx = (x - currentTransform.x) / currentTransform.k;
+            const gy = (y - currentTransform.y) / currentTransform.k;
+            hand.grabbedNode.fx = gx;
+            hand.grabbedNode.fy = gy;
+            hand.highlightEl
+              .attr("cx", x).attr("cy", y)
+              .attr("r", 25);
+          }
+          break;
+        }
+
+        case 'OPEN': {
+          hand.cursorEl.attr("r", 18);
+          hand.highlightEl.attr("r", 0);
+          this.releaseNode(hand);
+
+          // Pan based on palm velocity
+          const vx = state.velocity.x * -width * 2;
+          const vy = state.velocity.y * height * 2;
+          if (Math.abs(vx) > 1 || Math.abs(vy) > 1) {
+            const t = currentTransform.translate(vx / currentTransform.k, vy / currentTransform.k);
+            this.svg.call(this.zoom.transform, t);
+          }
+          break;
+        }
+
+        case 'PEACE': {
+          hand.cursorEl.attr("r", 15);
+          hand.highlightEl.attr("r", 0);
+          this.releaseNode(hand);
+
+          // Zoom based on finger spread change
+          const spreadDelta = state.fingerSpread - state.prevFingerSpread;
+          if (Math.abs(spreadDelta) > 0.002) {
+            const zoomFactor = 1 + spreadDelta * 3;
+            const t = currentTransform.scale(zoomFactor);
+            // Clamp
+            if (t.k >= 0.1 && t.k <= 10) {
+              this.svg.call(this.zoom.transform, t);
+            }
+          }
+          break;
+        }
+
+        case 'FIST': {
+          hand.cursorEl.attr("r", 10);
+          hand.highlightEl.attr("r", 0);
+          this.releaseNode(hand);
+
+          // Reset view to default (center, zoom 1x) - only once per gesture
+          if (gestureChanged) {
+            const resetTransform = d3.zoomIdentity;
+            this.svg.transition()
+              .duration(750)
+              .ease(d3.easeCubicOut)
+              .call(this.zoom.transform, resetTransform);
+          }
+          break;
+        }
+
+        default:
+          hand.highlightEl.attr("r", 0);
+          this.releaseNode(hand);
+      }
+    }
+
+    update(states) {
+      // Update each hand that has state
+      states.forEach((state, index) => {
+        if (state) {
+          this.updateHand(index, state);
+        } else {
+          // Hide cursor if hand not detected
+          this.hands[index].cursorEl.style("display", "none");
+          this.hands[index].highlightEl.attr("r", 0);
+          this.releaseNode(this.hands[index]);
+        }
+      });
+    }
+
+    releaseNode(hand) {
+      if (hand.grabbedNode) {
+        hand.grabbedNode.fx = null;
+        hand.grabbedNode.fy = null;
+        hand.grabbedNode = null;
+        // Only stop simulation if no hands are grabbing
+        const anyGrabbing = this.hands.some(h => h.grabbedNode !== null);
+        if (!anyGrabbing) {
+          this.simulation.alphaTarget(0);
+        }
+      }
+    }
+  }
+
+  // ============================================
+  // 4. MEDIAPIPE SETUP
+  // ============================================
+  const videoEl = document.getElementById('webcam');
+  const hudEl = document.getElementById('gesture-hud');
+  const gestureEngines = [new GestureEngine(), new GestureEngine()];
+  const controller = new GraphController(svg, g, zoom, simulation, nodes);
+
+  const mpHands = new Hands({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+  });
+
+  mpHands.setOptions({
+    maxNumHands: 2,
+    modelComplexity: 1,
+    minDetectionConfidence: 0.7,
+    minTrackingConfidence: 0.5,
+  });
+
+  mpHands.onResults((results) => {
+    const gestureColors = {
+      POINT: '🫵 POINT',
+      PINCH: '🤏 PINCH',
+      OPEN: '🖐️ OPEN',
+      PEACE: '✌️ PEACE',
+      FIST: '✊ FIST',
+      NONE: '...'
+    };
+
+    const states = [null, null];
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+      results.multiHandLandmarks.forEach((landmarks, index) => {
+        if (index < 2) {
+          states[index] = gestureEngines[index].process(landmarks);
+        }
+      });
+      controller.update(states);
+
+      // HUD - show both hands
+      let hudText = `Hands: ${results.multiHandLandmarks.length}<br>`;
+      states.forEach((state, i) => {
+        if (state) {
+          hudText += `Hand ${i + 1}: ${gestureColors[state.gesture]}<br>`;
+        }
+      });
+      hudText += `Zoom: ${currentTransform.k.toFixed(2)}x`;
+      hudEl.innerHTML = hudText;
+    } else {
+      controller.update(states);
+      hudEl.innerHTML = 'No hands detected';
+    }
+  });
+
+  const camera = new Camera(videoEl, {
+    onFrame: async () => {
+      await mpHands.send({ image: videoEl });
+    },
+    width: 640,
+    height: 480,
+  });
+  camera.start();
+
+  </script>
+</body>
+</html>
+
+							<script>
+                            	
+							</script>
+                        </body>
+                        </html>
+                    
